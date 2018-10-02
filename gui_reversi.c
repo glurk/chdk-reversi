@@ -38,11 +38,11 @@ typedef unsigned int uchar;
 
 //-------------------------------------------------------------------
 static uchar Field[8][8];
-static uchar CurrPlayer, Computer, InGame = 0, NumPl1, NumPl2;
+static uchar CurrPlayer, Computer, InGame, NumPl1, NumPl2;
 
 static unsigned short field_size, field_x, field_y, cell_size;
 
-static uchar xPos = 3, yPos = 3, OldxPos = 0, OldyPos = 0;
+static uchar xPos, yPos, OldxPos, OldyPos;
 static volatile uchar need_redraw = 0, need_redraw_all = 0, MFlag = 0;
 
 static char buf[128];
@@ -56,13 +56,15 @@ uchar NotPlayer(uchar Pl) {
 }
 
 //-------------------------------------------------------------------
-static inline uchar GetNum(uchar Player) {
-    uchar x, y, N = 0;
-
+static inline void GetNum() {
+    uchar x, y;
+    NumPl1 = NumPl2 = 0;
+    
     for (x=0; x<8; ++x)
-        for (y=0; y<8; ++y)
-            if (Field[x][y]==Player) ++N;
-    return N;
+        for (y=0; y<8; ++y) {
+            if (Field[x][y]==FIELD_PLAYER1) ++NumPl1;
+            if (Field[x][y]==FIELD_PLAYER2) ++NumPl2;
+        }
 }
 
 //-------------------------------------------------------------------
@@ -136,28 +138,36 @@ void ComputerPlace(uchar Player) {
                                           {8,8,6,5,5,6,8,8},
                                           {1,8,2,2,2,2,8,1}};
 */
-                                          
-    static const uchar PlaceTable[8][8] ={{1,108,92,94,94,92,108,1},
-                                          {108,124,4,3,3,4,124,108},
-                                          {92,4,93,96,96,93,4,92},
-                                          {94,3,96,1,1,96,3,94},
-                                          {94,3,96,1,1,96,3,94},
-                                          {92,4,93,96,96,93,4,92},
-                                          {108,124,4,3,3,4,124,108},
-                                          {1,108,92,94,94,92,108,1}};
+  
+    static const uchar PlaceTable[8][8] ={{0,8,4,6,6,4,8,0},
+                                          {8,9,3,2,2,3,9,8},
+                                          {4,3,7,5,5,7,3,4},
+                                          {6,2,5,1,1,5,2,6},
+                                          {6,2,5,1,1,5,2,6},
+                                          {4,3,7,5,5,7,3,4},
+                                          {8,9,3,2,2,3,9,8},
+                                          {0,8,4,6,6,4,8,0}};
+
     uchar PlX[61];
     uchar PlY[61];
-    uchar NPl = 0, I, J, MaxE = 0, E, MinPr = 125; // MinPr originally 9
+    static uchar DynTable[8][8];
+    uchar NPl = 0, I, J, MaxE = 0, E, MinPr = 25;
+    
+    srand(get_tick_count());
 
+    for (I=0; I<8; I++)
+        for (J=0; J<8; J++)
+            DynTable[I][J] = PlaceTable[I][J] + (rand()%3);
+                
     for (I=0; I<8; I++) {
         for (J=0; J<8; J++) {
             E = Place(I, J, Player, 0);
-            if ((MinPr>PlaceTable[I][J]) && (E<0xFF) && (E>0)) {
-                MinPr = PlaceTable[I][J];
+            if ((MinPr>DynTable[I][J]) && (E<0xFF) && (E>0)) {
+                MinPr = DynTable[I][J];
                 NPl = 0;
                 MaxE = 0;
             }
-            if ((E<0xFF) && (MinPr==PlaceTable[I][J])) {
+            if ((E<0xFF) && (MinPr==DynTable[I][J])) {
                 if (E>MaxE) {
                     MaxE = E;
                     NPl = 1;
@@ -173,9 +183,9 @@ void ComputerPlace(uchar Player) {
             }
         }
     }
-    srand(get_tick_count());
     E = (rand()%NPl) + 1;
     Place(PlX[E], PlY[E], Player, 1);
+    
     return;
 }
 
@@ -236,7 +246,7 @@ static void NewGame() {
     CurrPlayer = FIELD_PLAYER1;
     Computer = FIELD_PLAYER2;
     NumPl1 = NumPl2 = 2;
-    xPos = yPos = 3;
+    xPos = yPos = OldxPos = OldyPos = 3;
     InGame = 1;
     need_redraw_all = 1;
 }
@@ -258,8 +268,7 @@ void Clk(uchar x, uchar y) {
         } else {
             Placed = Place(x, y, CurrPlayer, 1);
             CurrPlayer = NotPlayer(CurrPlayer);
-            NumPl1 = GetNum(FIELD_PLAYER1);
-            NumPl2 = GetNum(FIELD_PLAYER2);
+            GetNum();
             need_redraw = 1;
             if (!CanPlace(FIELD_PLAYER1) && !CanPlace(FIELD_PLAYER2)) { 
                 InGame = 0; 
@@ -278,8 +287,7 @@ void Timer() {
     if ((InGame) & (CurrPlayer==Computer || Computer==COMPUTER_ONLY)) {
         if (CanPlace(CurrPlayer)) {
             ComputerPlace(CurrPlayer);
-            NumPl1 = GetNum(FIELD_PLAYER1);
-            NumPl2 = GetNum(FIELD_PLAYER2);
+            GetNum();
             need_redraw = 1;
         }
         CurrPlayer = NotPlayer(CurrPlayer);
@@ -296,28 +304,39 @@ void Timer() {
 
 //-------------------------------------------------------------------
 static void redraw() {
-    uchar x, y;
+    uchar x, y, mid;
 
     draw_rectangle(field_x+cell_size*xPos, field_y+cell_size*yPos, field_x+cell_size*(xPos+1),
                    field_y+cell_size*(yPos+1), MAKE_COLOR(COLOR_RED,COLOR_RED), RECT_BORDER1);
-    x = camera_screen.disp_left+field_size+5, y = 25-FONT_HEIGHT;
+    x = camera_screen.disp_left+field_size+5, y = 25;
+    mid = ((camera_screen.width-field_size) >> 2);
+    x += mid;
+    draw_rectangle(x-8, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
+                   MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER1);
+    draw_line(x-8, y+FONT_HEIGHT*4+2, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2, COLOR_BLACK);
+    draw_line(x-8, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*5-4, COLOR_BLACK);   
     if (InGame) {
+          draw_string(x+1-mid, y-10, "                ", MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
+
         if (CurrPlayer==FIELD_PLAYER1) {
-            draw_string(x+1, y, lang_str(LANG_REVERSI_MOVE_WHITE), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+            draw_rectangle(x-8, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2,
+                           MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
         } else {
-            draw_string(x+1, y, lang_str(LANG_REVERSI_MOVE_BLACK), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+              draw_rectangle(x-8, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
+                             MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
         }
     } else {
-        draw_string(x, y, lang_str(LANG_REVERSI_GAME_OVER), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+        draw_string(x+1-mid, y-10, lang_str(LANG_REVERSI_GAME_OVER), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
     }
-    draw_string(x, y+FONT_HEIGHT+8, lang_str(LANG_REVERSI_WHITE_BLACK), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_string(x, y+FONT_HEIGHT+8, " WHITE ", MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
     sprintf(buf, " %d ", NumPl1);
     draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_string(x, y+FONT_HEIGHT*5+8, " BLACK ", MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
     sprintf(buf, " %d ", NumPl2);
-    draw_string(x+FONT_WIDTH*7+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    draw_rectangle(x-2, y-2, x+FONT_WIDTH*14+2, y+FONT_HEIGHT*3+8+2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
-    draw_line(x-2, y+FONT_HEIGHT+4, x+FONT_WIDTH*14+2, y+FONT_HEIGHT+4, COLOR_WHITE);
-    draw_line(x+FONT_WIDTH*7, y+FONT_HEIGHT+4, x+FONT_WIDTH*7, y+FONT_HEIGHT*3+8+2, COLOR_WHITE);
+    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*6+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_rectangle(x-4, y+FONT_HEIGHT, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*4-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
+    draw_rectangle(x-4, y+FONT_HEIGHT*5, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*8-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1); 
+
 }
 
 //-------------------------------------------------------------------
@@ -331,7 +350,6 @@ int basic_module_init() {
 
 //-------------------------------------------------------------------
 int gui_reversi_kbd_process() {
-    OldxPos = xPos, OldyPos = yPos, MFlag = 0;
     switch (kbd_get_autoclicked_key()) {
         case KEY_UP:
             yPos = (yPos-1)&7;
@@ -365,11 +383,6 @@ int gui_reversi_kbd_process() {
             need_redraw = 1;
             break;
     }
-    if (MFlag) {
-        MFlag = 0;
-        DrawCell(OldxPos, OldyPos);
-        DrawCell(xPos, yPos);
-    }
 return 0;
 }
 
@@ -392,6 +405,12 @@ static int gui_reversi_touch_handler(int sx, int sy) {
 
 //-------------------------------------------------------------------
 void gui_reversi_draw() {
+    if (MFlag) {
+        MFlag = 0;
+        DrawCell(OldxPos, OldyPos);
+        DrawCell(xPos, yPos);
+        OldxPos = xPos, OldyPos = yPos;
+    }
     if (need_redraw_all) {
         need_redraw_all = 0;
         DrawMainWindow();
