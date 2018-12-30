@@ -129,35 +129,26 @@ uchar Place(uchar x, uchar y, uchar Player, uchar Placed) {
 
 //-------------------------------------------------------------------
 void ComputerPlace(uchar Player) {
-/*    static const uchar PlaceTable[8][8] ={{1,8,2,2,2,2,8,1},
-                                          {8,8,6,5,5,6,8,8},
-                                          {2,6,4,3,3,4,6,2},
-                                          {2,5,3,1,1,3,5,2},
-                                          {2,5,3,1,1,3,5,2},
-                                          {2,6,4,3,3,4,6,2},
-                                          {8,8,6,5,5,6,8,8},
-                                          {1,8,2,2,2,2,8,1}};
-*/
   
-    static const uchar PlaceTable[8][8] ={{0,8,4,6,6,4,8,0},
-                                          {8,9,3,2,2,3,9,8},
-                                          {4,3,7,5,5,7,3,4},
-                                          {6,2,5,1,1,5,2,6},
-                                          {6,2,5,1,1,5,2,6},
-                                          {4,3,7,5,5,7,3,4},
-                                          {8,9,3,2,2,3,9,8},
-                                          {0,8,4,6,6,4,8,0}};
+    static const uchar PlaceTable[8][8] ={{ 11, 78, 62, 65, 65, 62, 78, 11},
+                                          { 78, 94, 74, 73, 73, 74, 94, 78},
+                                          { 62, 74, 63, 64, 64, 63, 74, 62},
+                                          { 65, 73, 64, 11, 11, 64, 73, 65},
+                                          { 65, 73, 64, 11, 11, 64, 73, 65},
+                                          { 62, 74, 63, 64, 64, 63, 74, 62},
+                                          { 78, 94, 74, 73, 73, 74, 94, 78},
+                                          { 11, 78, 62, 65, 65, 62, 78, 11}};
 
     uchar PlX[61];
     uchar PlY[61];
     static uchar DynTable[8][8];
-    uchar NPl = 0, I, J, MaxE = 0, E, MinPr = 25;
+    uchar NPl = 0, I, J, MaxE = 0, E, MinPr = 100;
     
     srand(get_tick_count());
 
     for (I=0; I<8; I++)
         for (J=0; J<8; J++)
-            DynTable[I][J] = PlaceTable[I][J] + (rand()%3);
+            DynTable[I][J] = PlaceTable[I][J] + (rand()%3) - 1;
                 
     for (I=0; I<8; I++) {
         for (J=0; J<8; J++) {
@@ -183,8 +174,19 @@ void ComputerPlace(uchar Player) {
             }
         }
     }
+    
+    MaxE = MinPr = 0;
+
+    for(I=0; I<8; I+=7) {
+        for(J=0; J<8; J+=7) {
+            E = Place(I, J, Player, 0);
+            if ((E<0xFF) && (E>0)) {MaxE = E; MinPr = (I<<4) + J + 1;}
+            }
+        }
+    
     E = (rand()%NPl) + 1;
-    Place(PlX[E], PlY[E], Player, 1);
+    if(MinPr) Place(MinPr>>4, (MinPr&0x0F)-1, Player, 1);
+    else  Place(PlX[E], PlY[E], Player, 1);
     
     return;
 }
@@ -308,35 +310,32 @@ static void redraw() {
 
     draw_rectangle(field_x+cell_size*xPos, field_y+cell_size*yPos, field_x+cell_size*(xPos+1),
                    field_y+cell_size*(yPos+1), MAKE_COLOR(COLOR_RED,COLOR_RED), RECT_BORDER1);
-    x = camera_screen.disp_left+field_size+5, y = 25;
+    x = camera_screen.disp_left+field_size, y = 40;
     mid = ((camera_screen.width-field_size) >> 2);
     x += mid;
-    draw_rectangle(x-8, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
+    draw_rectangle(x-7, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
                    MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER1);
-    draw_line(x-8, y+FONT_HEIGHT*4+2, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2, COLOR_BLACK);
-    draw_line(x-8, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*5-4, COLOR_BLACK);   
+    draw_line(x-7, y+FONT_HEIGHT*4+2, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2, COLOR_BLACK);
+    draw_line(x-7, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*5-4, COLOR_BLACK);   
     if (InGame) {
           draw_string(x+1-mid, y-10, "                ", MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
 
         if (CurrPlayer==FIELD_PLAYER1) {
-            draw_rectangle(x-8, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2,
+            draw_rectangle(x-7, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2,
                            MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
         } else {
-              draw_rectangle(x-8, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
+              draw_rectangle(x-7, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
                              MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
         }
-    } else {
-        draw_string(x+1-mid, y-10, lang_str(LANG_REVERSI_GAME_OVER), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    }
-    draw_string(x, y+FONT_HEIGHT+8, " WHITE ", MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    sprintf(buf, " %d ", NumPl1);
-    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    draw_string(x, y+FONT_HEIGHT*5+8, " BLACK ", MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    sprintf(buf, " %d ", NumPl2);
-    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*6+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    draw_rectangle(x-4, y+FONT_HEIGHT, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*4-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
-    draw_rectangle(x-4, y+FONT_HEIGHT*5, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*8-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1); 
-
+    } 
+    draw_rectangle(x+FONT_WIDTH, y+FONT_HEIGHT+7, x+FONT_WIDTH*6, y+FONT_HEIGHT*3+7, MAKE_COLOR(COLOR_WHITE, COLOR_MAGENTA), RECT_BORDER6|DRAW_FILLED|RECT_ROUND_CORNERS);
+    sprintf(buf, "%d", NumPl1);
+    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2, buf, MAKE_COLOR(COLOR_WHITE, COLOR_BLACK));
+    draw_rectangle(x+FONT_WIDTH, y+FONT_HEIGHT*5+7, x+FONT_WIDTH*6, y+FONT_HEIGHT*7+7, MAKE_COLOR(COLOR_BLACK, COLOR_MAGENTA), RECT_BORDER6|DRAW_FILLED|RECT_ROUND_CORNERS);
+    sprintf(buf, "%d", NumPl2);
+    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*6, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_rectangle(x-3, y+FONT_HEIGHT, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*4-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER3|RECT_ROUND_CORNERS);
+    draw_rectangle(x-3, y+FONT_HEIGHT*5, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*8-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER3|RECT_ROUND_CORNERS); 
 }
 
 //-------------------------------------------------------------------
@@ -396,7 +395,7 @@ static int gui_reversi_touch_handler(int sx, int sy) {
         {
             xPos = sx;
             yPos = sy;
-            need_redraw_all = 1;
+            need_redraw = 1;
         }
         return KEY_SET;
     }
