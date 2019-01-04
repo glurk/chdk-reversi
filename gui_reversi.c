@@ -29,12 +29,11 @@ gui_handler GUI_MODE_REVERSI =
 
 #define FIELD_COLOR_WHITE       COLOR_GREEN
 #define FIELD_COLOR_BLACK       COLOR_GREEN_DK
-#define MARKER_COLOR_WHITE      COLOR_WHITE
-#define MARKER_COLOR_BLACK      COLOR_BLACK
 #define SELECTED_COLOR          COLOR_RED
 
 //-------------------------------------------------------------------
-typedef unsigned int uchar;
+typedef unsigned char uchar;
+typedef unsigned int uint;
 
 //-------------------------------------------------------------------
 static uchar Field[8][8];
@@ -51,7 +50,7 @@ static char buf[128];
 static void redraw();
 
 //-------------------------------------------------------------------
-uchar NotPlayer(uchar Pl) {
+static uchar NotPlayer(uchar Pl) {
     return (Pl ^ COMPUTER_ONLY);
 }
 
@@ -78,17 +77,17 @@ static void DrawCell(uchar x, uchar y) {
             break;
         case FIELD_PLAYER1:
             draw_ellipse(field_x+cell_size*x+(cell_size>>1), field_y+cell_size*y+(cell_size>>1),
-                                (cell_size>>1)-4, (cell_size>>1)-4, MARKER_COLOR_WHITE, DRAW_FILLED);
+                                (cell_size>>1)-4, (cell_size>>1)-4, COLOR_WHITE, DRAW_FILLED);
             break;
         case FIELD_PLAYER2:
             draw_ellipse(field_x+cell_size*x+(cell_size>>1), field_y+cell_size*y+(cell_size>>1),
-                                (cell_size>>1)-4, (cell_size>>1)-4, MARKER_COLOR_BLACK, DRAW_FILLED);
+                                (cell_size>>1)-4, (cell_size>>1)-4, COLOR_BLACK, DRAW_FILLED);
             break;
     }
 }
 
 //-------------------------------------------------------------------
-uchar Place(uchar x, uchar y, uchar Player, uchar Placed) {
+static uchar Place(uchar x, uchar y, uchar Player, uchar Placed) {
 /* 0..64 - Ok  0xFF - not empty*/
     int I, J, x1, y1;
     uchar Eated, E;
@@ -128,7 +127,7 @@ uchar Place(uchar x, uchar y, uchar Player, uchar Placed) {
 }
 
 //-------------------------------------------------------------------
-void ComputerPlace(uchar Player) {
+static void ComputerPlace(uchar Player) {
   
     static const uchar PlaceTable[8][8] ={{ 11, 78, 62, 65, 65, 62, 78, 11},
                                           { 78, 94, 74, 73, 73, 74, 94, 78},
@@ -192,7 +191,7 @@ void ComputerPlace(uchar Player) {
 }
 
 //-------------------------------------------------------------------
-uchar CanPlace(uchar Player) {
+static uchar CanPlace(uchar Player) {
     uchar I, J, E = 0, E1;
  
     for (I=0; I<8; I++) {
@@ -205,7 +204,7 @@ uchar CanPlace(uchar Player) {
 }
 
 //-------------------------------------------------------------------
-void Result() {
+static void Result() {
     if (NumPl1>NumPl2)
         gui_mbox_init(LANG_REVERSI_MSG_RESULTS_TITLE, LANG_REVERSI_MSG_RESULTS_WON, MBOX_TEXT_CENTER, NULL);
     else if (NumPl1<NumPl2)
@@ -217,11 +216,11 @@ void Result() {
 }
 
 //-------------------------------------------------------------------
-void DrawMainWindow() {
+static void DrawMainWindow() {
     uchar x, y;
 
     draw_rectangle(camera_screen.disp_left+field_size+field_x, FONT_HEIGHT*5, camera_screen.disp_right,
-                   camera_screen.height-FONT_HEIGHT*4-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
+                   camera_screen.height-FONT_HEIGHT*4-1, MAKE_COLOR(COLOR_BLUE, COLOR_BLUE), RECT_BORDER0|DRAW_FILLED);
     for (y=0; y<8; ++y) {
         for (x=0; x<8; ++x) {
             DrawCell(x, y);
@@ -230,10 +229,10 @@ void DrawMainWindow() {
 }
 
 //-------------------------------------------------------------------
-void InitMainWindow() {
+static void InitMainWindow() {
     InGame = 0;
     draw_rectangle(camera_screen.disp_left, 0, camera_screen.disp_right,
-                   camera_screen.height-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
+                   camera_screen.height-1, MAKE_COLOR(COLOR_BLUE, COLOR_BLUE), RECT_BORDER0|DRAW_FILLED);
     field_size = camera_screen.height & 0xFFF8;
     field_x = camera_screen.disp_left;
     field_y = camera_screen.height-field_size;
@@ -254,7 +253,7 @@ static void NewGame() {
 }
 
 //-------------------------------------------------------------------
-void Clk(uchar x, uchar y) {
+static void Clk(uchar x, uchar y) {
     uchar Placed;
  
     if ((CurrPlayer==Computer) || (! InGame) || (Computer==COMPUTER_ONLY))
@@ -285,7 +284,7 @@ void Clk(uchar x, uchar y) {
 }
 
 //-------------------------------------------------------------------
-void Timer() {
+static void Timer() {
     if ((InGame) & (CurrPlayer==Computer || Computer==COMPUTER_ONLY)) {
         if (CanPlace(CurrPlayer)) {
             ComputerPlace(CurrPlayer);
@@ -306,36 +305,22 @@ void Timer() {
 
 //-------------------------------------------------------------------
 static void redraw() {
-    uchar x, y, mid;
+    uint x, y, mid;
 
     draw_rectangle(field_x+cell_size*xPos, field_y+cell_size*yPos, field_x+cell_size*(xPos+1),
                    field_y+cell_size*(yPos+1), MAKE_COLOR(COLOR_RED,COLOR_RED), RECT_BORDER1);
     x = camera_screen.disp_left+field_size, y = 40;
     mid = ((camera_screen.width-field_size) >> 2);
     x += mid;
-    draw_rectangle(x-7, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
-                   MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER1);
-    draw_line(x-7, y+FONT_HEIGHT*4+2, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2, COLOR_BLACK);
-    draw_line(x-7, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*5-4, COLOR_BLACK);   
-    if (InGame) {
-          draw_string(x+1-mid, y-10, "                ", MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-
-        if (CurrPlayer==FIELD_PLAYER1) {
-            draw_rectangle(x-7, y+FONT_HEIGHT-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*4+2,
-                           MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
-        } else {
-              draw_rectangle(x-7, y+FONT_HEIGHT*5-4, x+FONT_WIDTH*7+6, y+FONT_HEIGHT*8+2,
-                             MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
-        }
-    } 
-    draw_rectangle(x+FONT_WIDTH, y+FONT_HEIGHT+7, x+FONT_WIDTH*6, y+FONT_HEIGHT*3+7, MAKE_COLOR(COLOR_WHITE, COLOR_MAGENTA), RECT_BORDER6|DRAW_FILLED|RECT_ROUND_CORNERS);
-    sprintf(buf, "%d", NumPl1);
-    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2, buf, MAKE_COLOR(COLOR_WHITE, COLOR_BLACK));
-    draw_rectangle(x+FONT_WIDTH, y+FONT_HEIGHT*5+7, x+FONT_WIDTH*6, y+FONT_HEIGHT*7+7, MAKE_COLOR(COLOR_BLACK, COLOR_MAGENTA), RECT_BORDER6|DRAW_FILLED|RECT_ROUND_CORNERS);
-    sprintf(buf, "%d", NumPl2);
-    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*6, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    draw_rectangle(x-3, y+FONT_HEIGHT, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*4-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER3|RECT_ROUND_CORNERS);
-    draw_rectangle(x-3, y+FONT_HEIGHT*5, x+FONT_WIDTH*7+2, y+FONT_HEIGHT*8-2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER3|RECT_ROUND_CORNERS); 
+    draw_string(x, y-10, "REVERSI", MAKE_COLOR(COLOR_BLUE, COLOR_WHITE));
+    sprintf(buf, " %d ", NumPl1);
+    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2, buf, MAKE_COLOR(COLOR_BLUE, COLOR_WHITE));
+    draw_ellipse(x+FONT_WIDTH*1.5+(cell_size>>1), y+FONT_HEIGHT*3+(cell_size>>1),
+                        (cell_size>>1)-4, (cell_size>>1)-4, COLOR_WHITE, DRAW_FILLED);
+    sprintf(buf, " %d ", NumPl2);
+    draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*6, buf, MAKE_COLOR(COLOR_BLUE, COLOR_WHITE)); 
+    draw_ellipse(x+FONT_WIDTH*1.5+(cell_size>>1), y+FONT_HEIGHT*7+(cell_size>>1),
+                        (cell_size>>1)-4, (cell_size>>1)-4, COLOR_BLACK, DRAW_FILLED);
 }
 
 //-------------------------------------------------------------------
@@ -421,7 +406,7 @@ void gui_reversi_draw() {
     }
     sprintf(buf, "Batt:%3d%%", get_batt_perc());
     draw_string_justified(camera_screen.disp_left, camera_screen.height-FONT_HEIGHT,
-                          buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE), 0, camera_screen.disp_width, TEXT_RIGHT);
+                          buf, MAKE_COLOR(COLOR_BLUE, COLOR_WHITE), 0, camera_screen.disp_width, TEXT_RIGHT);
     Timer();
 }
 
